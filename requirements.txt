@@ -1,0 +1,11 @@
+langchain
+langchain-text-splitters
+langchain-ollama
+langchain-chroma
+langgraph
+chromadb
+pymupdf
+pydantic
+pyyaml
+python-dotenv
+streamlit

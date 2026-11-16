@@ -1,0 +1,26 @@
+# Single place to switch providers. Only src/config.py reads the provider section.
+provider: ollama            # ollama | bedrock (Stage 6)
+
+ollama:
+  llm_model: qwen2.5:7b
+  embed_model: nomic-embed-text
+  base_url: http://localhost:11434
+
+bedrock:                    # phase 2
+  region: ap-southeast-2
+  llm_model: anthropic.claude-haiku   # confirm exact model ID in the Bedrock console
+  embed_model: amazon.titan-embed-text-v2:0
+
+ingest:
+  raw_dir: data/raw
+  chroma_dir: data/chroma
+  collection: philhealth
+  chunk_size: 800           # experimenting (was 800); record results in LEARNING_LOG
+  chunk_overlap: 0          # skeleton: fixed chunks; upgrade 1 adds overlap
+
+retrieval:
+  top_k: 4
+
+graph:
+  max_retries: 2
+  fallback_message: "Insufficient policy data to confirm."
