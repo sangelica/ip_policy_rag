@@ -9,3 +9,4 @@ pydantic
 pyyaml
 python-dotenv
 streamlit
+pytest

@@ -1,0 +1,5 @@
+{"q": "What is the 2025 premium rate for direct contributors?", "expected_page": 1, "answerable": true, "answer":"5.0%", "must_contain_any": []}
+{"q": "What is the income ceiling?", "expected_page": 1, "answerable": true, "answer":"P100,000", "must_contain_any": []}
+{"q": "Does the monthly basic salary include overtime pay?", "expected_page": 1, "answerable": true, "answer":"not include", "must_contain_any": ["not include", "exclude", "not part of", "not counted", "no"]}
+{"q": "What does PhilHealth Konsulta cover?", "expected_page": null, "answerable": false, "answer":"Not enough information", "must_contain_any": []}
+{"q": "What is the monthly premium for someone earning ₱10,000?", "expected_page": 1, "answerable": true, "answer":"P500", "must_contain_any": []}

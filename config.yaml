@@ -6,7 +6,7 @@ ollama:
   embed_model: nomic-embed-text
   base_url: http://localhost:11434
 
-bedrock:                    # phase 2
+bedrock:                    # Stage 6
   region: ap-southeast-2
   llm_model: anthropic.claude-haiku   # confirm exact model ID in the Bedrock console
   embed_model: amazon.titan-embed-text-v2:0
