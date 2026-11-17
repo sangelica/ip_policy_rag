@@ -23,6 +23,7 @@ run_eval.py - Run validation on 5 questions from golden_set.jsonl using pytest f
 schemas.py - Data models used by the code.
     - QueryState - shared data across nodes
     - Citation/Answer - schema fed to the LLM, that it follows. This is done through "llm = get_llm().with_structured_output(Answer)"
+vector_store.py - chroma vector db is made into a single instance
 
 **Result:** 
 11/16 (Used PA2025-0002.pdf):

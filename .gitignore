@@ -1,42 +1,19 @@
 # Secrets — never commit
 .env
-.env.*
-!.env.example
 *credentials*.csv
 *accessKeys*.csv
 *.pem
-*.key
-.aws/
-.streamlit/secrets.toml
 
 # Python
 .venv/
 __pycache__/
 *.pyc
-*.egg-info/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.coverage
-htmlcov/
-.ipynb_checkpoints/
 
 # Generated data
 data/chroma/
 traces/
 data/raw/*.pdf
-eval/results/
-
-# Generated copies of docs (source of truth is docs/)
-Claude outputs/
-
-# Phase 2 plan: held back until Phase 1 is complete (remove this line to publish it)
-docs/PHASE2_PLAN.md
-
-# Logs
-*.log
 
 # OS / editor
 .DS_Store
 .vscode/
-.idea/
