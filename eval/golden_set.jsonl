@@ -20,3 +20,4 @@
 {"q": "How is voluntary withdrawal of accreditation different from temporary deactivation?", "expected_source": "PC2026-0002.pdf", "expected_pages": [25], "answerable": true, "answer": "permanent", "must_contain_any": ["permanent"]}
 {"q": "What is the PhilHealth GAMOT reimbursement price for metformin?", "expected_source": null, "expected_pages": [], "answerable": false, "answer": null, "must_contain_any": []}
 {"q": "How much is the fine in pesos for a GAMOT facility that violates this circular?", "expected_source": null, "expected_pages": [], "answerable": false, "answer": null, "must_contain_any": []}
+{"q": "How are GAMOT facilities paid by PhilHealth?", "expected_source": "PC2026-0002.pdf", "expected_pages": [2, 24], "answerable": true, "answer": "Auto-Credit Payment Scheme", "must_contain_any": ["Auto-Credit Payment Scheme", "Auto Credit Payment Scheme", "ACPS"]}

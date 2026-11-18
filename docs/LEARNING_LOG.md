@@ -82,6 +82,7 @@ Full eval output lives in the result files, not here; this log keeps the conclus
 - `doc_part` metadata ("main" or "annex") from the page footer or annex heading.
 - Hybrid retrieval in `retriever.py`: BM25 + vector search, merged with reciprocal rank fusion (`candidates_k: 10`, `top_k: 4`, `rrf_k: 60`).
 - Citation cleanup in `generate`: keep only citations whose source and page were actually retrieved.
+- Cross-encoder reranker (`src/reranker.py`, `BAAI/bge-reranker-base`), run in the grade node: reranks the fused top 10 (`fused_k`) and keeps the top 4. `rerank.enabled` switch in `config.yaml`, plus a session fixture in the eval that loads the model once before the tests. Turned off in config (`rerank.enabled: false`) after testing (see Surprises 6 and 8).
 
 ### Surprises / bugs
 1. **Some PDFs have no text layer.** PC2024-0013 is fully scanned, so `get_text()` returns nothing and OCR is needed.
@@ -89,6 +90,9 @@ Full eval output lives in the result files, not here; this log keeps the conclus
 3. **The main body mentions annexes too**, so `doc_part` has to look only at the footer and the start of the page.
 4. **Citations come back empty on correct answers.** Either the model returns none, or the cleanup filter drops them because the source string doesn't match exactly.
 5. Generate still takes 7–23 s per question.
+6. **The reranker did not fix Q18.** The answer chunk p24-c0 reached the reranker (fused position 5–6) but scored below the 4 chunks kept; p2-c0 (likely the ACPS definition) was cut by `fused_k: 10` before reranking. The top-scored chunk, the annex payment form (p14-c0, 0.72), does name the payment mode, but garbled: the checkboxes in "□ACPS □Check □Other" come out of the text layer as "DACPS DCheck DOther".
+7. **Rewording Q18 makes it pass.** "How are GAMOT facilities paid by PhilHealth?" passes; the original "How are payments to GAMOT facilities made?" fails. With the new wording, both searches find the answer chunk p24-c0 (vector rank 5, BM25 rank 5), so RRF gives it two terms (1/65 + 1/65 = 0.0308) and it is fused 2nd. With the original wording, only BM25 finds it (rank 3, 1/63 = 0.0159), and four chunks that both searches found mid-list (≈ 0.03 each) take the top 4. Added the new wording to the golden set as Q22, keeping the original Q18 as the harder test.
+8. **The reranker broke Q1**, which passed before. Turning the reranker off in config made it pass again.
 
 ### Takeaways
 - **BM25** is lexical (keyword) search. It scores a query against a document by:
@@ -109,4 +113,8 @@ Full eval output lives in the result files, not here; this log keeps the conclus
 - **Some failures are question-wording problems, not retrieval settings.** (Q18: no chunking or search setting found the ACPS chunks)
 - **Bigger chunks cost latency, because the LLM reads more text.** (13 s → 22 s per question at 600)
 - Write golden answers only after checking the page image, especially for OCR'd pages.
+- **A reranker (cross-encoder) reads the query and the chunk together** and scores how well that chunk answers the question. Vector search embeds them separately and only compares topics. It is more precise, but it can only reorder chunks that retrieval already found.
+- **RRF rewards agreement, not being best in one list.** A chunk ranked 5th by both searches (0.0308) beats one ranked 1st by only one (0.0164). So the wording of a question decides whether both searches find the answer, and that decides its fused rank. (Q18 vs Q22)
+- **Keep the hard wording in the golden set and add the easy one beside it.** Replacing the failing question would make the eval pass without the system improving.
+- **A more advanced component isn't automatically better.** The reranker didn't fix the failure it was added for and broke a question that passed. Measure it on the whole golden set before keeping it.
 

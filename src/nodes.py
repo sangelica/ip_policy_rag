@@ -3,6 +3,7 @@ from src.vector_store import get_vector_store
 from src.schemas import QueryState, Answer
 from src.config import get_llm,CONFIG
 from src.retriever import hybrid_search, vector_search
+from src.reranker import rerank
 
 
 def guard(state: QueryState) -> dict:
@@ -12,21 +13,37 @@ def guard(state: QueryState) -> dict:
 
 def retrieve(state: QueryState) -> dict:
     start = time.perf_counter()
-    ###OLD
-    # docs = get_vector_store().similarity_search(state["query"], k = CONFIG["retrieval"]["top_k"])
-
-    start = time.perf_counter()
     cfg = CONFIG["retrieval"]
     if cfg.get("mode") == "hybrid":
-        docs = hybrid_search(state["query"])
+        if CONFIG['rerank']['enabled']:
+            ret_k = CONFIG["retrieval"]["fused_k"]
+        else:
+            ret_k = CONFIG["retrieval"]["top_k"]
+        docs = hybrid_search(state["query"], ret_k)
     else:
         docs = vector_search(state["query"], CONFIG["retrieval"]["top_k"])
 
     return {"chunks": docs, "timings": {"retrieve": time.perf_counter() - start}}
 
+
 def grade(state: QueryState) -> dict:
     start = time.perf_counter()
-    return {"relevant": True, "timings": {"grade": time.perf_counter() - start}}  # stub
+
+    # if reranker turned on, rerank top 'fused_k' elements
+    if CONFIG["rerank"]["enabled"]:
+        top_k_chunks = rerank(state["query"], state["chunks"], CONFIG["retrieval"]["top_k"])
+
+        for doc, score in top_k_chunks:                       # log while you calibrate
+            print(f"RERANK {score:.4f} {doc.id}")
+
+        return {"chunks": [d for d, _ in top_k_chunks],
+                #"rerank_scores": [float(s) for _, s in top_k_chunks],
+                "relevant": True,                       # keep True until rewrite exists
+                "timings": {"grade": time.perf_counter() - start}}
+    else:
+        # just return true if no need for reranker
+        return {"relevant": True, "timings": {"grade": time.perf_counter() - start}}  # stub
+
 
 def strip_space(s):
     s = s.lower()

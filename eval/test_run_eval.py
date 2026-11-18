@@ -1,9 +1,17 @@
 from src.state_machine import app as IP_AGENT
-from src.config import PROJECT_ROOT
+from src.config import PROJECT_ROOT, CONFIG
+from src.reranker import get_reranker
 from pathlib import Path
 
 import json, time, pytest
 import re
+
+
+@pytest.fixture(scope="session", autouse=True)
+def warm_up_reranker():
+    """Load the reranker once before any test, so Q0's grade time isn't inflated by model loading."""
+    if CONFIG.get("rerank", {}).get("enabled"):
+        get_reranker().predict([("warm", "up")])   # dummy pair: also pays the first-predict setup cost
 
 # golden test data path
 test_data_path = PROJECT_ROOT / "eval" / "golden_set.jsonl"

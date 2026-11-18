@@ -11,3 +11,4 @@ python-dotenv
 streamlit
 pytest
 rank_bm25
+sentence-transformers

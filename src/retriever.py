@@ -96,7 +96,7 @@ def bm25_search(query: str, k: int) -> list[Document]:
     return [docs[i] for i in top_positions if scores[i] > 0]
 
 
-def hybrid_search(query: str) -> list[Document]:
+def hybrid_search(query: str, ret_k: int) -> list[Document]:
     """Combine vector and BM25 results with Reciprocal Rank Fusion (RRF).
 
     Each search returns its top candidates_k chunks. A chunk scores 1 / (rrf_k + rank)
@@ -126,7 +126,7 @@ def hybrid_search(query: str) -> list[Document]:
             docs_by_id[doc.id] = doc
 
     order = sorted(rrf_scores, key=rrf_scores.get, reverse=True)
-    return [docs_by_id[i] for i in order[:cfg["top_k"]]]
+    return [docs_by_id[i] for i in order[:ret_k]]
 
 
 def search(query, k=4):
@@ -148,5 +148,6 @@ def search(query, k=4):
     return 
 
 #search("What is the premium rate of direct contributors with salary 15,000 pesos?")
-search("What is the 2025 premium rate for direct contributors?")
-search("What does PhilHealth Konsulta cover?")
+if __name__ == "__main__":
+    search("What is the 2025 premium rate for direct contributors?")
+    search("What does PhilHealth Konsulta cover?")
