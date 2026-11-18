@@ -35,7 +35,6 @@ stateGraph.add_conditional_edges("grade",
                                     "rewrite" : "rewrite"
                                 }
                                 )
-    #lambda s: "generate" if s["relevant"] or s["retries"] >= 2 else "rewrite")
 
 stateGraph.add_edge("rewrite", "retrieve")
 
@@ -47,10 +46,10 @@ stateGraph.add_conditional_edges("check",
                                      "fallback" : "fallback"
                                  }
                                 )
-stateGraph.add_edge("fallback", END)
-    #lambda s: END if s["grounded"] else "fallback")
 
-# ...plus a small "fallback" node that sets the "Insufficient policy data" answer → END
+# small "fallback" node that sets the "Insufficient policy data" answer → END
+stateGraph.add_edge("fallback", END)
+
 app = stateGraph.compile()
 
 
