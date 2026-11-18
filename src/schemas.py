@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 # Structure for Citation
 class Citation(BaseModel):
     source: str = Field(description="Filename of the excerpt, exactly as shown in its label.")
-    page: int = Field(ge=1, description="Page number shown in the excerpt label.")
+    page: int = Field(description="Page number shown in the excerpt label.")
     quote: str = Field(description="Sentence copied word for word from the excerpt that supports the answer.")
 
 

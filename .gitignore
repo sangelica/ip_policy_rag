@@ -13,6 +13,19 @@ __pycache__/
 data/chroma/
 traces/
 data/raw/*.pdf
+data/ocr/
+
+# Private / local only
+docs/PHASE2_PLAN.md
+*.backup.md
+Claude outputs/
+
+# Local eval output
+*.xlsx
+~$*
+/0013.txt
+/2025_*.txt
+.pytest_cache/
 
 # OS / editor
 .DS_Store

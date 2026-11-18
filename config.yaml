@@ -13,14 +13,22 @@ bedrock:                    # Stage 6
 
 ingest:
   raw_dir: data/raw
+  ocr_dir: data/ocr         # cached OCR text for scanned pages, one .txt per page
   chroma_dir: data/chroma
   collection: philhealth
-  chunk_size: 800           # experimenting (was 800); record results in LEARNING_LOG
-  chunk_overlap: 0          # skeleton: fixed chunks; upgrade 1 adds overlap
-
-retrieval:
-  top_k: 4
+  chunk_size: 700            # experimenting (was 200); record results in LEARNING_LOG
+  chunk_overlap: 100          # skeleton: fixed chunks; upgrade 1 adds overlap
+  list_aware_split: true
+  abbreviations:            # B1: abbreviation -> full form
+    PRO: PhilHealth Regional Office
+    PROs: PhilHealth Regional Offices
 
 graph:
   max_retries: 2
   fallback_message: "Insufficient policy data to confirm."
+
+retrieval:
+  mode: hybrid          # vector | hybrid   (switch back to compare)
+  candidates_k: 10      # how many each search returns before fusing
+  top_k: 4              # how many go to the LLM
+  rrf_k: 60             # RRF constant

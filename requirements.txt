@@ -10,3 +10,4 @@ pyyaml
 python-dotenv
 streamlit
 pytest
+rank_bm25

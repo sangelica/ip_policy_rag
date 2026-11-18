@@ -5,6 +5,9 @@ from pathlib import Path
 import json, time, pytest
 import re
 
+# golden test data path
+test_data_path = PROJECT_ROOT / "eval" / "golden_set.jsonl"
+#test_data_path = PROJECT_ROOT / "eval" / "golden_set_pc2024_0013.jsonl"
 
 # Curly quotes and dashes from the PDF → plain ASCII, so quotes match what the model writes.
 _PUNCT = str.maketrans({"“": '"', "”": '"', "‘": "'", "’": "'", "–": "-", "—": "-"})
@@ -34,9 +37,6 @@ def normalize(text: str) -> str:
     return text
 
 
-# golden test data path
-test_data_path = PROJECT_ROOT / "eval" / "golden_set.jsonl"
-
 def load_jsonl():
     data = []
     with open(test_data_path, "r", encoding="utf-8") as file:
@@ -58,11 +58,12 @@ def test_golden_data(test_query):
 
     #print(test_query)
 
-    start_time = time.perf_counter()
+    #start_time = time.perf_counter()
     qs_obj = IP_AGENT.invoke({"query": test_query['q']})
-    end_time = time.perf_counter()
+    #end_time = time.perf_counter()
     
-    #print(qs_obj)
+    print(qs_obj)
+    print("===============================")
 
     # get the answer field (Answer obj) from QueryState structure
     answer_obj = qs_obj['answer']
@@ -82,12 +83,12 @@ def test_golden_data(test_query):
 
         assert answer_found or is_contained
 
-        actual_pages = [citation['page'] for citation in answer_obj['citations']]
+        actual_pages = {citation['page'] for citation in answer_obj['citations']}
+        expected_pages = set(test_query['expected_pages'])
 
-        #print(actual_pages)
-
-        # check if expected page is in actual pages from citations
-        assert test_query['expected_page'] in actual_pages
+        # pass if at least one cited page is an expected page (the sets overlap)
+        assert actual_pages & expected_pages, \
+            f"cited pages {sorted(actual_pages)}, expected any of {sorted(expected_pages)}"
 
         # grounding: every quote really exists in a retrieved chunk
         #chunk_texts = [compact(d.page_content) for d in chunks]
@@ -97,5 +98,9 @@ def test_golden_data(test_query):
     else:
         assert answer_obj['citations'] == []
         # how to force llm to reply in specific manner when info is not answerable
-    print(f'Q:{test_query['q']}\nAns:{answer_obj['answer']}\nTiming:{end_time - start_time:.2f}s\n')
+    #print(f'Q:{test_query['q']}\nAns:{answer_obj['answer']}\nTiming:{end_time - start_time:.2f}s\n')
     #break
+    for node, secs in qs_obj['timings'].items():
+        print(f"{node:<10} {secs:.3f}s")
+    timings = qs_obj['timings']
+    print(f"{'total':<10} {sum(timings.values()):.3f}s")

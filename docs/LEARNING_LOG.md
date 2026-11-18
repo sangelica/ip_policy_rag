@@ -1,82 +1,112 @@
 # Learning Log
 
-One entry per stage or upgrade. Write the concept in your own words — this becomes your README and project write-up.
+A dated journal of building the PhilHealth Policy RAG Agent. Each day: **What I built · Surprises / bugs · Takeaways**.
+Full eval output lives in the result files, not here; this log keeps the conclusions.
 
 ---
 
-## Stage 1 — Walking skeleton
-**Concept:**
-Insurance Policy RAG Agent
+## 2026-11-16 — Stage 1: ingest skeleton
 
-**What I built:**
-11/16:
-config.yaml - configuration data including llm model, chunk size/overlap for ingestion, output folders etc.
-config.py - functions to get config data
-ingest.py
-    - reads pdf
-    - chunks results (chunk size: 800) per page
-    - adds per chunk info to a "Document", added to a chroma DB vector store.
-11/17:
-state_machine.py - The langchain state machine flow. Create the graph nodes, connect the flow through "edges" which can be conditionals.
-nodes.py - These are the states of the state machine, represented by functions.
-run_eval.py - Run validation on 5 questions from golden_set.jsonl using pytest framework. Use "python -m pytest -s" from project folder.
-schemas.py - Data models used by the code.
-    - QueryState - shared data across nodes
-    - Citation/Answer - schema fed to the LLM, that it follows. This is done through "llm = get_llm().with_structured_output(Answer)"
-vector_store.py - chroma vector db is made into a single instance
+### What I built
+- `config.yaml`: configuration data (LLM model, chunk size/overlap for ingestion, output folders, etc.)
+- `config.py`: functions to load the config and get the LLM and embeddings
+- `ingest.py`:
+  - reads the PDF
+  - chunks the text per page (chunk size: 800)
+  - wraps each chunk in a `Document` with metadata and adds it to the Chroma vector store
+- First retrieval check on PA2025-0002.pdf (one page), with the query *"What is the 2025 premium rate for direct contributors?"*, k=4:
+  - chunk 0 (rates table) scored 0.5947
+  - chunk 1 (Monthly Basic Salary definition) scored 0.6714
 
-**Result:** 
-11/16 (Used PA2025-0002.pdf):
-Score: 0.5947 | Content: Philippine Health Insurance Corporation ADVISORY No. 2025 - 0002 (Sgd.) EMMANUEL R. LEDESMA, JR. President and Chief Executive As prescribed in Section 10 of Republic Act No. 11223 also known as the Universal Health Care (UHC) Act and in accordance with PhilHealth Circular No. 2020-0005 on the “Pre mium Contribution Schedule in the National Health Insurance Program (Revision 1),” all Direct Contributors are hereby advised that the premium rate effective the applicable period of January 2025 remains at 5.0%, with an income floor of P10,000 and income ceiling of P100,000, as follows: Year Monthly Basic Salary Premium Rate Monthly Premium 2025 P10,000.00 5.0% P500.00 P10,000.01 to P99,999.99 P500.00 to P5,000.00 P100,000.00 5,000.00
-Metadata: {'page': 1, 'chunk': 0, 'source': 'PA2025-0002.pdf'}
+### Surprises / bugs
+1. **The whole corpus is only 2 chunks.** PA2025-0002 is a one-page advisory, and at chunk_size 800 it splits into two pieces. Any search with k=4 returns everything, so this run proves the pipeline works, not that retrieval is any good. Add a second, longer PDF soon so retrieval has to choose.
+2. **The table lost its structure.** "P10,000.01 to P99,999.99 P500.00 to P5,000.00" is a table flattened into one line. A human can barely read it, and a 7B model may misread it. This is why the plan has a deterministic `premium_calculator`; this advisory gives its inputs (rate 5.0%, floor ₱10,000, ceiling ₱100,000).
+3. **Text order follows the PDF layout, not reading order.** The signature block ("(Sgd.) EMMANUEL R. LEDESMA…") comes before the body, and "Pre mium" is split in two.
+4. **Headings land in the wrong chunk.** Chunk 1 ends with "Premium Contribution for All Direct Contributors for CY 2025", the heading for the table that is actually in chunk 0.
+5. **Scores are distances: lower means closer.** Chunk 0 (the rates) scored 0.59, better than chunk 1 at 0.67, which matches a manual check.
 
-Score: 0.6714 | Content: As stated in the same issuance, all Employers are reminded to use the Monthly Basic Salary (MBS) in the computation of monthly contributions of their Employees. The MBS is the fixed basic rate of an employee which shall not include sales commission, overtime pay, allowances, thirteenth month pay, bonuses or other gratuity payments. Further to this, those deductions to the employee’s pay occasioned by his/her undertime, tardiness, leave(s) without pay, absences, or other similar circumstances shall also be excluded in this computation. Further inquiriesmay be referred to the nearest PhilHealth Local Health Insurance Office or to the assigned PhilHealth Account Information Management Specialist (PAIMS). Premium Contribution for All Direct Contributors for CY 2025
-Metadata: {'chunk': 1, 'source': 'PA2025-0002.pdf', 'page': 1}
+### Takeaways
+- A working pipeline is not the same as good retrieval; a tiny corpus can't test retrieval.
+- PDF text extraction loses tables, reading order and words split across lines. Expect to clean text before chunking.
+- Always note which query a similarity score came from, and remember Chroma scores are distances.
 
-11/17
-eval/test_run_eval.py Q:What is the 2025 premium rate for direct contributors?
-Ans:The 2025 premium rate for direct contributors is 5.0%. This is stated in Philippine Health Insurance Corporation ADVISORY No. 2025 - 0002, as prescribed in Section 10 of Republic Act No. 11223 also known as the Universal Health Care (UHC) Act and in accordance with PhilHealth Circular No. 2020-0005 on the “Premium Contribution Schedule in the National Health Insurance Program (Revision 1).
-Timing:25.10s
+---
 
-.Q:What is the income ceiling?
-Ans:The income ceiling is P100,000.00.
-Timing:6.86s
+## 2026-11-17 — Stage 1: state machine, schemas, first eval
 
-.Q:Does the monthly basic salary include overtime pay?
-Ans:No, the monthly basic salary does not include overtime pay. According to the excerpt from PA2025-0002.pdf p.1, the Monthly Basic Salary (MBS) is defined as the fixed basic rate of an employee which shall not include sales commission, overtime pay, allowances, thirteenth month pay, bonuses or other gratuity payments.
-Timing:12.71s
+### What I built
+- `state_machine.py`: the LangGraph state machine. Creates the graph nodes and connects them with edges, some of them conditional.
+- `nodes.py`: the states of the state machine, each one a function.
+- `schemas.py`: data models used by the code.
+  - `QueryState`: shared data across nodes
+  - `Citation` / `Answer`: the schema the LLM must follow, via `get_llm().with_structured_output(Answer)`
+- `vector_store.py`: the Chroma vector store as a single cached instance.
+- `eval/test_run_eval.py`: runs the 5 questions in `golden_set.jsonl` with pytest. Run `python -m pytest -s` from the project folder.
+- Per-node timings (`time.perf_counter()` into `state["timings"]`).
 
-.FQ:What is the monthly premium for someone earning ₱10,000?
-Ans:The monthly premium for someone earning ₱10,000 is ₱500.00.
-Timing:8.82s
+### Results
+| Run | Passed | Notes |
+|---|---|---|
+| chunk 800, k=4 | 4/5 | Konsulta (unanswerable) failed. Generate 7–25 s per question |
+| chunk 200, k=4 | 4/5 | Konsulta failed again |
+| chunk 200, k=2 | 3/5 | Premium-rate question failed: the 5.0% fell outside both chunks, so the model said "not provided". Konsulta failed |
+| chunk 200, overlap 50, k=2 | 4/5 | The overlap brought "5.0%" back into the retrieved chunk. Konsulta failed |
+| same, with timings | 4/5 | retrieve ~0.05–0.24 s, generate 4–11 s. Generate is almost all of the latency |
 
-**Surprises / bugs:**
-11/16 update:
-Used PA2025-0002.pdf, which is a one page document.
+### Surprises / bugs
+1. **Unanswerable questions still get a citation.** When the document can't answer, the model still returns a citation with a page and an empty source and quote, even though the prompt says citations must be empty:
+   `'answer': 'The provided excerpts do not contain any information about what PhilHealth Konsulta covers.', 'citations': [{'source': '', 'page': 1, 'quote': ''}]`
+   The result changes with the quality of the prompt, and the 7B model may be weak at following it. Possible fix: handle it in the fallback.
+2. **Instructions in a Pydantic `Field` description are ignored by the Ollama model.** What works is changing the prompt itself in `nodes.py`.
+3. **Small chunks can cut a fact in half.** At chunk 200 / k=2 the sentence with the rate was split from "5.0%", and the answer was lost.
+4. **The model formats `source` inconsistently:** `[PA2025-0002.pdf p.1]`, `[PA2025-0002.pdf]`, `PA2025-0002.pdf` or empty.
 
-1. The whole corpus is only 2 chunks. PA2025-0002 is a one-page advisory, and at chunk_size: 800 it splits into two pieces. Any search with k=4 returns everything, so this run proves the pipeline works, not that retrieval is any good. That's fine for the skeleton, but add a second, longer PDF soon so retrieval actually has to choose.
+### Takeaways
+- Chunk size, overlap and k interact: overlap rescues facts that straddle a chunk boundary.
+- With a local 7B model, the prompt is the control lever; don't rely on schema descriptions alone.
+- Never trust the model's citation formatting. Normalise or validate it in code.
+- Latency is all in the LLM call; retrieval takes milliseconds.
 
-2. The table lost its structure. P10,000.01 to P99,999.99 P500.00 to P5,000.00 is a table flattened into one line. A human can barely read it, and a 7B model may misread it. This is the main reason the plan has a deterministic premium_calculator: this advisory gives you its inputs (rate 5.0%, floor ₱10,000, ceiling ₱100,000).
+---
 
-3. Text order follows the PDF's layout, not its reading order. The signature block ("(Sgd.) EMMANUEL R. LEDESMA…") appears before the body text, and "Pre mium" is split in two.
+## 2026-11-18 — Stage 2: more data, OCR, hybrid retrieval
 
-4. The heading problem. Chunk 1 ends with "Premium Contribution for All Direct Contributors for CY 2025", the heading for the table that's actually in chunk 0.
+### What I built
+<!-- Check these against what you actually did today -->
+- Added PC2026-0002.pdf (28 pages: main body pp. 1–8, Annexes A–D pp. 9–28) and wrote 17 golden questions for it (22 in `golden_set.jsonl` in total).
+- `expected_pages` is now a list; the eval passes if any cited page is in it.
+- Eval checks: `normalize()` / `contains()` for answer matching (currency, thousands separators, trailing zeros, number boundaries), `must_contain_any`, and empty citations for unanswerable questions.
+- OCR fallback in `ingest.py` for scanned pages (Tesseract via PyMuPDF), cached per page in `data/ocr/` (ADR-003). PC2024-0013 (32 scanned pages) has its own golden set of 30 questions, but is not ingested yet.
+- List-aware chunking (split at paragraphs, numbered items, lettered items, then sentences), with chunk 600 → 700 and overlap 100.
+- Abbreviation expansion at ingest from `config.yaml` (PRO → "PhilHealth Regional Office (PRO)").
+- `doc_part` metadata ("main" or "annex") from the page footer or annex heading.
+- Hybrid retrieval in `retriever.py`: BM25 + vector search, merged with reciprocal rank fusion (`candidates_k: 10`, `top_k: 4`, `rrf_k: 60`).
+- Citation cleanup in `generate`: keep only citations whose source and page were actually retrieved.
 
-5. Scores are distances, so lower means closer. Chunk 0, the one with the rates, scored 0.59, which is better than chunk 1 at 0.64. Note what query you used.
-    - I used "results = VECTOR_STORE.similarity_search_with_score("What is the 2025 premium rate for direct contributors?", k=4)
-    - chunk 0 does seem to be closer based on manual check.
+### Surprises / bugs
+1. **Some PDFs have no text layer.** PC2024-0013 is fully scanned, so `get_text()` returns nothing and OCR is needed.
+2. **A text layer can still be wrong.** PC2026-0002 has OCR errors baked in ("sixty (6o)" on p. 3) and soft hyphens (`\xad`).
+3. **The main body mentions annexes too**, so `doc_part` has to look only at the footer and the start of the page.
+4. **Citations come back empty on correct answers.** Either the model returns none, or the cleanup filter drops them because the source string doesn't match exactly.
+5. Generate still takes 7–23 s per question.
 
-11/17 update:
-1.
-When running the golden test data, the answers to the questions are correct. However, when the document cannot answer the query, a page and source (without a quote) is still provided in citations
-even when prompt explicitly says citations need to be empty.
+### Takeaways
+- **BM25** is lexical (keyword) search. It scores a query against a document by:
+  - rarity: common words score lower than rare ones
+  - frequency: repeating a keyword dozens of times has diminishing returns
+  - length normalisation: a longer document doesn't automatically score higher
+- **RRF** merges two rankings by rank, not score: `score += 1 / (rrf_k + rank)`. A chunk found by both searches beats one found by only one.
+- Exact terms (circular numbers, ₱ amounts, abbreviations) are where keyword search helps vector search.
+- **Vector and keyword search fail on different questions, so combining them helps.** (Q16: not in the vector top 10, BM25 rank 1)
+- **Chunk boundaries decide whether a fact is retrievable.** If the subject and the number land in different chunks, neither chunk matches the question. (Q8: "PRO" in one chunk, "seven (7) days" in the next)
+- **List-aware splitting helps, but can cut elsewhere**, e.g. at a sentence that starts with "It". (Q16 and Q17 broke at 700, until hybrid search recovered them)
+- **Annexes and templates repeat the question's wording and crowd out the policy text.** (Q8, Q18: annex chunks outranked the main circular)
+- **A stale index silently changes results.** Re-ingesting without a reset leaves old chunks and duplicates. (Hybrid run: p4-c3 and p4-c6 identical; +1 pass after a clean re-ingest)
+- **Never trust LLM-written IDs or quotes as-is. Verify them against the source.** (Mistyped filename in Q10, curly quotes in Q16, OCR "6o" vs "60" in Q5)
+- **A correct answer can still fail on its citation**, so check the citation separately from the answer. (Q2, Q5, Q10, Q16)
+- **Change one thing per run, or results can't be attributed.** (The 600 run changed 4 things; the hybrid run also had a re-ingest)
+- **Fix the test when it's wrong**, e.g. a paragraph that spans two pages. (Q13 on pages 6–7, and `expected_pages` lists)
+- **Some failures are question-wording problems, not retrieval settings.** (Q18: no chunking or search setting found the ACPS chunks)
+- **Bigger chunks cost latency, because the LLM reads more text.** (13 s → 22 s per question at 600)
+- Write golden answers only after checking the page image, especially for OCR'd pages.
 
-The result changes depending on the quality of the prompt, the llm model used may be weak as well.
-This is the question and answer that failed validation.
-
-Question: What does PhilHealth Konsulta cover?
-'answer': {'answer': 'The provided excerpts do not contain any information about what PhilHealth Konsulta covers.', 'citations': [{'source': '', 'page': 1, 'quote': ''}]}, 'grounded': True, 'timings': {}}
-
-Try to handle this in fallback handling.
-2. For the ollama model, providing instructions to LLM through "Field" description in schema does not work. What works is modifying the prompt itself in nodes.py
-**Key takeaway:** 
