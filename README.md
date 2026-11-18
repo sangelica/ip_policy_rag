@@ -191,3 +191,13 @@ More detail is in [docs/LEARNING_LOG.md](docs/LEARNING_LOG.md).
 - Tracing and observability per node
 - An MCP server exposing the retriever as a tool
 - Serverless deployment with CI running the eval on every push
+
+---
+
+## Copyright
+
+© 2026 the repository owner. **All rights reserved.**
+
+This repository is public for viewing as a portfolio project only. No licence is granted: the code, documentation and evaluation data may not be copied, modified, distributed or used without prior written permission.
+
+The PhilHealth circulars and advisories referred to here are public documents owned by the Philippine Health Insurance Corporation. They are not included in this repository. This project is independent and not affiliated with or endorsed by PhilHealth.
